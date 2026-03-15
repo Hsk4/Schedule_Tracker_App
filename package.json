@@ -1,0 +1,13 @@
+{
+  "name": "strkos",
+  "version": "1.0.0",
+  "description": "1. Go to https://snack.expo.dev 2. Delete all default files 3. Create each file from this project and paste the code in 4. Click the Android tab to preview live 5. Click \"Export\" → \"Download as APK\" to get an installable file",
+  "main": "App.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
