@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { Platform, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,19 +11,51 @@ import TodayScreen from './src/screens/TodayScreen';
 import StreaksScreen from './src/screens/StreaksScreen';
 import ChecklistScreen from './src/screens/ChecklistScreen';
 import WeekScreen from './src/screens/WeekScreen';
+import ControlCenterScreen from './src/screens/ControlCenterScreen';
 import { AppContext } from './src/context/AppContext';
-import { scheduleAllReminders } from './src/utils/notifications';
+import BrandLogo from './src/components/BrandLogo';
+import {
+  scheduleAllReminders,
+  getNotificationPermissionStatus,
+  requestNotificationPermissions,
+} from './src/utils/notifications';
 import { COLORS } from './src/theme';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 const Tab = createBottomTabNavigator();
+
+const DEFAULT_STATE = {
+  dayBlocks: {},
+  habits: {},
+  prepItems: {},
+  customTasks: [],
+  settings: {
+    notificationsEnabled: true,
+    notificationPermission: 'unknown',
+    lastNotificationSync: null,
+  },
+};
+
+function migrateState(savedState) {
+  if (!savedState) return DEFAULT_STATE;
+  return {
+    ...DEFAULT_STATE,
+    ...savedState,
+    settings: {
+      ...DEFAULT_STATE.settings,
+      ...(savedState.settings || {}),
+    },
+  };
+}
 
 const NavTheme = {
   ...DefaultTheme,
@@ -36,23 +69,24 @@ const NavTheme = {
 };
 
 export default function App() {
-  const [state, setState] = useState({
-    dayBlocks: {},
-    habits: {},
-    prepItems: {},
-    customTasks: [],
-  });
+  const [state, setState] = useState(DEFAULT_STATE);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     loadState();
-    requestNotifPermission();
   }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    requestNotifPermission();
+  }, [loaded, state.settings.notificationsEnabled]);
 
   const loadState = async () => {
     try {
       const saved = await AsyncStorage.getItem('strkos_state');
-      if (saved) setState(JSON.parse(saved));
+      if (saved) {
+        setState(migrateState(JSON.parse(saved)));
+      }
     } catch (e) {}
     setLoaded(true);
   };
@@ -65,14 +99,58 @@ export default function App() {
   };
 
   const requestNotifPermission = async () => {
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status === 'granted') scheduleAllReminders();
+    if (Platform.OS === 'web') return;
+
+    let status = await getNotificationPermissionStatus();
+    if (status !== 'granted' && state.settings.notificationsEnabled) {
+      status = await requestNotificationPermissions();
+    }
+
+    if (status === 'granted' && state.settings.notificationsEnabled) {
+      await scheduleAllReminders();
+      const newState = {
+        ...state,
+        settings: {
+          ...state.settings,
+          notificationPermission: status,
+          lastNotificationSync: new Date().toISOString(),
+        },
+      };
+      saveState(newState);
+      return;
+    }
+
+    const newState = {
+      ...state,
+      settings: {
+        ...state.settings,
+        notificationPermission: status,
+      },
+    };
+    saveState(newState);
   };
 
-  if (!loaded) return null;
+  const updateSettings = (patch) => {
+    const next = {
+      ...state,
+      settings: {
+        ...state.settings,
+        ...patch,
+      },
+    };
+    saveState(next);
+  };
+
+  if (!loaded) {
+    return (
+      <View style={s.loaderWrap}>
+        <ActivityIndicator size="large" color={COLORS.accent} />
+      </View>
+    );
+  }
 
   return (
-    <AppContext.Provider value={{ state, saveState }}>
+    <AppContext.Provider value={{ state, saveState, updateSettings }}>
       <NavigationContainer theme={NavTheme}>
         <StatusBar style="light" />
         <Tab.Navigator
@@ -84,12 +162,16 @@ export default function App() {
             tabBarActiveTintColor: COLORS.accent,
             tabBarInactiveTintColor: COLORS.text3,
             tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+            headerTitle: route.name === 'Today'
+              ? () => <BrandLogo compact />
+              : undefined,
             tabBarIcon: ({ focused, color, size }) => {
               const icons = {
                 Today: focused ? 'today' : 'today-outline',
                 Streaks: focused ? 'flame' : 'flame-outline',
                 Checklist: focused ? 'checkbox' : 'checkbox-outline',
                 Week: focused ? 'calendar' : 'calendar-outline',
+                Control: focused ? 'settings' : 'settings-outline',
               };
               return <Ionicons name={icons[route.name]} size={22} color={color} />;
             },
@@ -99,8 +181,18 @@ export default function App() {
           <Tab.Screen name="Streaks" component={StreaksScreen} />
           <Tab.Screen name="Checklist" component={ChecklistScreen} />
           <Tab.Screen name="Week" component={WeekScreen} />
+          <Tab.Screen name="Control" component={ControlCenterScreen} options={{ title: 'Control Center' }} />
         </Tab.Navigator>
       </NavigationContainer>
     </AppContext.Provider>
   );
 }
+
+const s = StyleSheet.create({
+  loaderWrap: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

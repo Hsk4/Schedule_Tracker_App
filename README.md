@@ -33,6 +33,13 @@ npx expo start
 - Install "Expo Go" from the Play Store on your phone
 - Scan the QR code that appears — app runs live on your phone!
 
+#### Step 4.1 — Run on desktop (Windows/macOS/Linux)
+```
+npm run web
+```
+- Opens in your desktop browser (Chrome/Edge/Firefox)
+- This desktop mode uses Expo Web and works without Android emulator
+
 #### Step 5 — Build a real APK
 ```
 eas login         # create a free account at expo.dev
@@ -50,6 +57,7 @@ app.json                        ← app config
 package.json                    ← dependencies
 src/
   theme.js                      ← colors
+  components/BrandLogo.js       ← branded logo component
   context/AppContext.js         ← global state
   data/schedule.js              ← your full schedule + habits
   utils/notifications.js        ← daily reminders
@@ -58,7 +66,17 @@ src/
     StreaksScreen.js             ← habit streaks
     ChecklistScreen.js          ← nightly prep + tasks
     WeekScreen.js               ← weekly overview
+    ControlCenterScreen.js      ← notification + system controls
 ```
+
+## New dynamic & pro features
+- Branded STRK_OS header/logo in the app UI
+- Control Center tab for operational controls
+- Notification permission lifecycle handling
+- One-tap reminder scheduling / cancellation
+- Test notification sender for quick validation
+- Persistent settings (`notificationsEnabled`, permission status, last sync time)
+- Desktop-ready mode via Expo Web (`npm run web`)
 
 ## Customising your schedule
 Open `src/data/schedule.js` and edit `SCHEDULE_WEEKDAY` or `SCHEDULE_WEEKEND`.

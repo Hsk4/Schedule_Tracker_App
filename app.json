@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "android": {
+      "package": "com.hammad1256.strkos"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "42969283-82ae-48f4-afe5-0b38d2207f4a"
+      }
+    }
+  }
+}
